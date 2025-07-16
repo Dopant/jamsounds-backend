@@ -15,7 +15,8 @@ import {
   incrementPostRating,
   getCategoriesByPostId,
   setCategoriesForPost,
-  getPostsByCategory
+  getPostsByCategory,
+  logVisit
 } from '../models/blogPost.js';
 import multer from 'multer';
 import path from 'path';
@@ -43,6 +44,10 @@ const uploadMedia = upload.fields([
 
 // Public: Get all posts (with category filter)
 router.get('/', async (req, res) => {
+  // Log visit
+  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+  const userAgent = req.headers['user-agent'] || '';
+  await logVisit({ ip, userAgent });
   const { search, genre, featured, sortBy, limit, offset, category } = req.query;
   let posts;
   if (category) {
@@ -65,6 +70,10 @@ router.get('/', async (req, res) => {
 
 // Public: Get single post (include categories)
 router.get('/:id', async (req, res) => {
+  // Log visit
+  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+  const userAgent = req.headers['user-agent'] || '';
+  await logVisit({ ip, userAgent });
   await incrementPostViews(req.params.id);
   const post = await getPostById(req.params.id);
   if (!post) return res.status(404).json({ message: 'Post not found' });

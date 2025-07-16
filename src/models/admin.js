@@ -36,6 +36,79 @@ export async function setSetting(key, value) {
   );
 }
 
+// Homepage statistics keys
+const HOMEPAGE_STATS_KEYS = [
+  'artists_featured_count',
+  'reviews_published_count',
+  'monthly_readers_count'
+];
+
+export async function getHomepageStats() {
+  const stats = {};
+  for (const key of HOMEPAGE_STATS_KEYS) {
+    stats[key] = await getSetting(key);
+  }
+  return stats;
+}
+
+export async function setHomepageStats(newStats) {
+  for (const key of HOMEPAGE_STATS_KEYS) {
+    if (key in newStats && newStats[key] != null && newStats[key] !== '') {
+      console.log(`[HomepageStats] Updating ${key} to:`, newStats[key]);
+      await setSetting(key, newStats[key]);
+    }
+  }
+}
+
+// Homepage content keys
+const HOMEPAGE_CONTENT_KEYS = [
+  'homepage_title',
+  'homepage_subtitle',
+  'homepage_description',
+  'homepage_logo_url'
+];
+
+export async function getHomepageContent() {
+  const content = {};
+  for (const key of HOMEPAGE_CONTENT_KEYS) {
+    content[key] = await getSetting(key);
+  }
+  return content;
+}
+
+export async function setHomepageContent(newContent) {
+  for (const key of HOMEPAGE_CONTENT_KEYS) {
+    if (key in newContent && newContent[key] != null && newContent[key] !== '') {
+      console.log(`[HomepageContent] Updating ${key} to:`, newContent[key]);
+      await setSetting(key, newContent[key]);
+    }
+  }
+}
+
+// Social media links keys
+const SOCIAL_LINKS_KEYS = [
+  'social_x_url',
+  'social_facebook_url',
+  'social_instagram_url',
+  'social_youtube_url'
+];
+
+export async function getSocialLinks() {
+  const links = {};
+  for (const key of SOCIAL_LINKS_KEYS) {
+    links[key] = await getSetting(key);
+  }
+  return links;
+}
+
+export async function setSocialLinks(newLinks) {
+  for (const key of SOCIAL_LINKS_KEYS) {
+    if (key in newLinks && newLinks[key] != null && newLinks[key] !== '') {
+      await setSetting(key, newLinks[key]);
+    }
+  }
+}
+
 export async function seedInitialAdmin() {
   const email = 'admin@musicblog.com';
   const password = 'MusicBlog2025!';

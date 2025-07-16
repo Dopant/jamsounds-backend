@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 import authRoutes from './routes/auth.js';
 import postsRoutes from './routes/posts.js';
+import analyticsRoutes from './routes/analytics.js';
+import newsletterRoutes from './routes/newsletter.js';
 import { seedInitialAdmin } from './models/admin.js';
 import path from 'path';
 
@@ -17,6 +19,8 @@ app.get('/', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postsRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/newsletter', newsletterRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.resolve('uploads')));

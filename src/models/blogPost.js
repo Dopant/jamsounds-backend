@@ -1,4 +1,6 @@
 import pool from '../db.js';
+import geoip from 'geoip-lite';
+import { UAParser } from 'ua-parser-js';
 
 export async function getAllPosts({ search, genre, featured, sortBy, limit, offset }) {
   let query = `SELECT p.*, a.name AS author_name, a.avatar AS author_avatar, a.bio AS author_bio
@@ -142,4 +144,49 @@ export async function getPostsByCategory(category, limit = 10) {
     [category, limit]
   );
   return rows;
+}
+
+// Log a visit with IP and user-agent
+export async function logVisit({ ip, userAgent }) {
+  await pool.query(
+    'INSERT INTO visits (ip, user_agent, visited_at) VALUES (?, ?, NOW())',
+    [ip, userAgent]
+  );
+}
+
+// Get aggregated visit stats for analytics
+export async function getVisitStats() {
+  // Get all visits
+  const [visits] = await pool.query('SELECT ip, user_agent FROM visits');
+
+  // Country count
+  const countryCounts = {};
+  for (const visit of visits) {
+    let country = 'Unknown';
+    if (visit.ip && visit.ip !== '::1' && visit.ip !== '127.0.0.1') {
+      const geo = geoip.lookup(visit.ip);
+      if (geo && geo.country) country = geo.country;
+    }
+    countryCounts[country] = (countryCounts[country] || 0) + 1;
+  }
+
+  // Device type count
+  const deviceCounts = { Desktop: 0, Mobile: 0, Tablet: 0 };
+  for (const visit of visits) {
+    const parser = new UAParser(visit.user_agent);
+    const type = parser.getDevice().type;
+    if (type === 'mobile') deviceCounts.Mobile++;
+    else if (type === 'tablet') deviceCounts.Tablet++;
+    else deviceCounts.Desktop++;
+  }
+
+  // Format for frontend
+  const byCountry = Object.entries(countryCounts)
+    .map(([country, count]) => ({ country, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+  const byDevice = Object.entries(deviceCounts)
+    .map(([device, count]) => ({ device, count }));
+
+  return { byCountry, byDevice };
 } 

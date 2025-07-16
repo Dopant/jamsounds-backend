@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS visits (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  ip VARCHAR(64),
+  user_agent VARCHAR(255),
+  visited_at DATETIME
+);
