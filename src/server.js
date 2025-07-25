@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';
 import postsRoutes from './routes/posts.js';
 import analyticsRoutes from './routes/analytics.js';
 import newsletterRoutes from './routes/newsletter.js';
+import genresRoutes from './routes/genres.js';
 import { seedInitialAdmin } from './models/admin.js';
 import path from 'path';
 
@@ -21,6 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/posts', postsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/newsletter', newsletterRoutes);
+app.use('/api/genres', genresRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.resolve('uploads')));

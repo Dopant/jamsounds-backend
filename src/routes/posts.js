@@ -102,7 +102,7 @@ router.post('/:id/rate', async (req, res) => {
 
 // Admin: Create post (accept categories)
 router.post('/', authenticateToken, uploadMedia, async (req, res) => {
-  const { title, excerpt, content, genre, tags, featured, rating, read_time, priority, categories } = req.body;
+  const { title, excerpt, content, tags, featured, rating, read_time, priority, categories, created_at, genre_id } = req.body;
   const author_id = req.user.id;
   let hero_image_url = null;
   if (req.files && req.files['heroImage'] && req.files['heroImage'][0]) {
@@ -113,13 +113,14 @@ router.post('/', authenticateToken, uploadMedia, async (req, res) => {
     excerpt,
     content,
     author_id,
-    genre,
     tags,
     featured: featured === 'true' || featured === true,
     priority: priority ? parseInt(priority, 10) : 0,
     hero_image_url,
     rating,
-    read_time
+    read_time,
+    created_at, // pass through, may be undefined
+    genre_id: genre_id ? parseInt(genre_id, 10) : null
   });
   // Set categories
   let cats = categories;
@@ -187,7 +188,6 @@ router.put('/:id', authenticateToken, upload.single('heroImage'), async (req, re
   const title = req.body.title !== undefined ? req.body.title : existing.title;
   const excerpt = req.body.excerpt !== undefined ? req.body.excerpt : existing.excerpt;
   const content = req.body.content !== undefined ? req.body.content : existing.content;
-  const genre = req.body.genre !== undefined ? req.body.genre : existing.genre;
   const tags = req.body.tags !== undefined ? req.body.tags : existing.tags;
   const featured = req.body.featured !== undefined ? (req.body.featured === 'true' || req.body.featured === true) : existing.featured;
   const priority = req.body.priority !== undefined ? (req.body.priority ? parseInt(req.body.priority, 10) : 0) : existing.priority;
@@ -197,19 +197,20 @@ router.put('/:id', authenticateToken, upload.single('heroImage'), async (req, re
   }
   const rating = req.body.rating !== undefined ? req.body.rating : existing.rating;
   const read_time = req.body.read_time !== undefined ? req.body.read_time : existing.read_time;
-  const { categories } = req.body;
+  const { categories, created_at, genre_id } = req.body;
 
   const updated = await updatePost(req.params.id, {
     title,
     excerpt,
     content,
-    genre,
     tags,
     featured,
     priority,
     hero_image_url,
     rating,
-    read_time
+    read_time,
+    created_at, // pass through, may be undefined
+    genre_id: genre_id ? parseInt(genre_id, 10) : existing.genre_id
   });
   if (!updated) return res.status(404).json({ message: 'Post not found' });
 

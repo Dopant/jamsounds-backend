@@ -2,9 +2,10 @@ import pool from '../db.js';
 import geoip from 'geoip-lite';
 import { UAParser } from 'ua-parser-js';
 
-export async function getAllPosts({ search, genre, featured, sortBy, limit, offset }) {
-  let query = `SELECT p.*, a.name AS author_name, a.avatar AS author_avatar, a.bio AS author_bio
+export async function getAllPosts({ search, genre_id, featured, sortBy, limit, offset }) {
+  let query = `SELECT p.*, g.name AS genre_name, a.name AS author_name, a.avatar AS author_avatar, a.bio AS author_bio
     FROM blog_posts p
+    LEFT JOIN genres g ON p.genre_id = g.id
     LEFT JOIN admin a ON p.author_id = a.id
     WHERE 1=1`;
   const params = [];
@@ -12,9 +13,9 @@ export async function getAllPosts({ search, genre, featured, sortBy, limit, offs
     query += ' AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)';
     params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
-  if (genre) {
-    query += ' AND p.genre = ?';
-    params.push(genre);
+  if (genre_id) {
+    query += ' AND p.genre_id = ?';
+    params.push(genre_id);
   }
   if (featured !== undefined) {
     query += ' AND p.featured = ?';
@@ -47,8 +48,9 @@ export async function getAllPosts({ search, genre, featured, sortBy, limit, offs
 
 export async function getPostById(id) {
   const [rows] = await pool.query(
-    `SELECT p.*, a.name AS author_name, a.avatar AS author_avatar, a.bio AS author_bio
+    `SELECT p.*, g.name AS genre_name, a.name AS author_name, a.avatar AS author_avatar, a.bio AS author_bio
      FROM blog_posts p
+     LEFT JOIN genres g ON p.genre_id = g.id
      LEFT JOIN admin a ON p.author_id = a.id
      WHERE p.id = ?`,
     [id]
@@ -58,17 +60,42 @@ export async function getPostById(id) {
 
 export async function createPost(post) {
   const [result] = await pool.query(
-    'INSERT INTO blog_posts (title, excerpt, content, author_id, genre, tags, featured, priority, hero_image_url, created_at, updated_at, views, rating, read_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), 0, ?, ?)',
-    [post.title, post.excerpt, post.content, post.author_id, post.genre, post.tags, post.featured, post.priority || 0, post.hero_image_url, post.rating, post.read_time]
+    'INSERT INTO blog_posts (title, excerpt, content, author_id, tags, featured, priority, hero_image_url, created_at, updated_at, views, rating, read_time, genre_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ' + (post.created_at ? '?' : 'NOW()') + ', NOW(), 0, ?, ?, ?)',
+    [post.title, post.excerpt, post.content, post.author_id, post.tags, post.featured, post.priority || 0, post.hero_image_url]
+      .concat(post.created_at ? [post.created_at, post.rating, post.read_time, post.genre_id] : [post.rating, post.read_time, post.genre_id])
   );
   return result.insertId;
 }
 
 export async function updatePost(id, post) {
-  const [result] = await pool.query(
-    'UPDATE blog_posts SET title=?, excerpt=?, content=?, genre=?, tags=?, featured=?, priority=?, hero_image_url=?, updated_at=NOW(), rating=?, read_time=? WHERE id=?',
-    [post.title, post.excerpt, post.content, post.genre, post.tags, post.featured, post.priority || 0, post.hero_image_url, post.rating, post.read_time, id]
-  );
+  // Build dynamic SQL for only provided fields
+  const fields = [];
+  const values = [];
+  if (post.title !== undefined) { fields.push('title=?'); values.push(post.title); }
+  if (post.excerpt !== undefined) { fields.push('excerpt=?'); values.push(post.excerpt); }
+  if (post.content !== undefined) { fields.push('content=?'); values.push(post.content); }
+  if (post.tags !== undefined) { fields.push('tags=?'); values.push(post.tags); }
+  if (post.featured !== undefined) { fields.push('featured=?'); values.push(post.featured); }
+  if (post.priority !== undefined) { fields.push('priority=?'); values.push(post.priority); }
+  if (post.hero_image_url !== undefined) { fields.push('hero_image_url=?'); values.push(post.hero_image_url); }
+  if (post.rating !== undefined) { fields.push('rating=?'); values.push(post.rating); }
+  if (post.read_time !== undefined) { fields.push('read_time=?'); values.push(post.read_time); }
+  if (post.genre_id !== undefined) { fields.push('genre_id=?'); values.push(post.genre_id); }
+  // Only update created_at if provided and valid
+  if (post.created_at !== undefined && post.created_at !== null && post.created_at !== '') {
+    // Convert ISO string to MySQL DATETIME if needed
+    let createdAt = post.created_at;
+    if (/T/.test(createdAt)) {
+      createdAt = createdAt.replace('T', ' ').replace(/\.\d{3}Z?$/, '');
+    }
+    fields.push('created_at=?');
+    values.push(createdAt);
+  }
+  // Always update updated_at
+  fields.push('updated_at=NOW()');
+  const sql = `UPDATE blog_posts SET ${fields.join(', ')} WHERE id=?`;
+  values.push(id);
+  const [result] = await pool.query(sql, values);
   return result.affectedRows;
 }
 
@@ -134,8 +161,9 @@ export async function setCategoriesForPost(post_id, categories) {
 
 export async function getPostsByCategory(category, limit = 10) {
   const [rows] = await pool.query(
-    `SELECT p.*, a.name AS author_name, a.avatar AS author_avatar, a.bio AS author_bio
+    `SELECT p.*, g.name AS genre_name, a.name AS author_name, a.avatar AS author_avatar, a.bio AS author_bio
      FROM blog_posts p
+     LEFT JOIN genres g ON p.genre_id = g.id
      LEFT JOIN admin a ON p.author_id = a.id
      JOIN post_categories pc ON p.id = pc.post_id
      WHERE pc.category = ?
