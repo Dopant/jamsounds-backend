@@ -3,7 +3,7 @@ import geoip from 'geoip-lite';
 import { UAParser } from 'ua-parser-js';
 
 export async function getAllPosts({ search, genre_id, featured, sortBy, limit, offset }) {
-  let query = `SELECT p.*, g.name AS genre_name, a.name AS author_name, a.avatar AS author_avatar, a.bio AS author_bio
+  let query = `SELECT p.*, g.name AS genre_name, p.author_name, a.avatar AS author_avatar, a.bio AS author_bio
     FROM blog_posts p
     LEFT JOIN genres g ON p.genre_id = g.id
     LEFT JOIN admin a ON p.author_id = a.id
@@ -48,7 +48,7 @@ export async function getAllPosts({ search, genre_id, featured, sortBy, limit, o
 
 export async function getPostById(id) {
   const [rows] = await pool.query(
-    `SELECT p.*, g.name AS genre_name, a.name AS author_name, a.avatar AS author_avatar, a.bio AS author_bio
+    `SELECT p.*, g.name AS genre_name, p.author_name, a.avatar AS author_avatar, a.bio AS author_bio
      FROM blog_posts p
      LEFT JOIN genres g ON p.genre_id = g.id
      LEFT JOIN admin a ON p.author_id = a.id
@@ -60,8 +60,8 @@ export async function getPostById(id) {
 
 export async function createPost(post) {
   const [result] = await pool.query(
-    'INSERT INTO blog_posts (title, excerpt, content, author_id, tags, featured, priority, hero_image_url, created_at, updated_at, views, rating, read_time, genre_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ' + (post.created_at ? '?' : 'NOW()') + ', NOW(), 0, ?, ?, ?)',
-    [post.title, post.excerpt, post.content, post.author_id, post.tags, post.featured, post.priority || 0, post.hero_image_url]
+    'INSERT INTO blog_posts (title, excerpt, content, author_id, author_name, author_image, tags, featured, priority, hero_image_url, created_at, updated_at, views, rating, read_time, genre_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' + (post.created_at ? '?' : 'NOW()') + ', NOW(), 0, ?, ?, ?)',
+    [post.title, post.excerpt, post.content, post.author_id, post.author_name, post.author_image, post.tags, post.featured, post.priority || 0, post.hero_image_url]
       .concat(post.created_at ? [post.created_at, post.rating, post.read_time, post.genre_id] : [post.rating, post.read_time, post.genre_id])
   );
   return result.insertId;
@@ -74,6 +74,8 @@ export async function updatePost(id, post) {
   if (post.title !== undefined) { fields.push('title=?'); values.push(post.title); }
   if (post.excerpt !== undefined) { fields.push('excerpt=?'); values.push(post.excerpt); }
   if (post.content !== undefined) { fields.push('content=?'); values.push(post.content); }
+  if (post.author_name !== undefined) { fields.push('author_name=?'); values.push(post.author_name); }
+  if (post.author_image !== undefined) { fields.push('author_image=?'); values.push(post.author_image); }
   if (post.tags !== undefined) { fields.push('tags=?'); values.push(post.tags); }
   if (post.featured !== undefined) { fields.push('featured=?'); values.push(post.featured); }
   if (post.priority !== undefined) { fields.push('priority=?'); values.push(post.priority); }
@@ -161,7 +163,7 @@ export async function setCategoriesForPost(post_id, categories) {
 
 export async function getPostsByCategory(category, limit = 10) {
   const [rows] = await pool.query(
-    `SELECT p.*, g.name AS genre_name, a.name AS author_name, a.avatar AS author_avatar, a.bio AS author_bio
+    `SELECT p.*, g.name AS genre_name, p.author_name, a.avatar AS author_avatar, a.bio AS author_bio
      FROM blog_posts p
      LEFT JOIN genres g ON p.genre_id = g.id
      LEFT JOIN admin a ON p.author_id = a.id
