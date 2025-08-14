@@ -90,7 +90,8 @@ const SOCIAL_LINKS_KEYS = [
   'social_x_url',
   'social_facebook_url',
   'social_instagram_url',
-  'social_youtube_url'
+  'social_youtube_url',
+  'social_tiktok_url'
 ];
 
 export async function getSocialLinks() {
