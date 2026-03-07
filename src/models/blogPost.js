@@ -58,11 +58,18 @@ export async function getPostById(id) {
   return rows[0];
 }
 
+function serializeArtistSocial(links) {
+  if (!links || typeof links !== 'object') return null;
+  const str = JSON.stringify(links);
+  return str === '{}' ? null : str;
+}
+
 export async function createPost(post) {
+  const artistSocial = serializeArtistSocial(post.artist_social_links);
   const [result] = await pool.query(
-    'INSERT INTO blog_posts (title, excerpt, content, author_id, author_name, author_image, tags, featured, priority, hero_image_url, created_at, updated_at, views, rating, read_time, genre_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' + (post.created_at ? '?' : 'NOW()') + ', NOW(), 0, ?, ?, ?)',
+    'INSERT INTO blog_posts (title, excerpt, content, author_id, author_name, author_image, tags, featured, priority, hero_image_url, created_at, updated_at, views, rating, read_time, genre_id, artist_social_links) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' + (post.created_at ? '?' : 'NOW()') + ', NOW(), 0, ?, ?, ?, ?)',
     [post.title, post.excerpt, post.content, post.author_id, post.author_name, post.author_image, post.tags, post.featured, post.priority || 0, post.hero_image_url]
-      .concat(post.created_at ? [post.created_at, post.rating, post.read_time, post.genre_id] : [post.rating, post.read_time, post.genre_id])
+      .concat(post.created_at ? [post.created_at, post.rating, post.read_time, post.genre_id, artistSocial] : [post.rating, post.read_time, post.genre_id, artistSocial])
   );
   return result.insertId;
 }
@@ -83,6 +90,7 @@ export async function updatePost(id, post) {
   if (post.rating !== undefined) { fields.push('rating=?'); values.push(post.rating); }
   if (post.read_time !== undefined) { fields.push('read_time=?'); values.push(post.read_time); }
   if (post.genre_id !== undefined) { fields.push('genre_id=?'); values.push(post.genre_id); }
+  if (post.artist_social_links !== undefined) { fields.push('artist_social_links=?'); values.push(serializeArtistSocial(post.artist_social_links)); }
   // Only update created_at if provided and valid
   if (post.created_at !== undefined && post.created_at !== null && post.created_at !== '') {
     // Convert ISO string to MySQL DATETIME if needed
@@ -161,18 +169,21 @@ export async function setCategoriesForPost(post_id, categories) {
   }
 }
 
-export async function getPostsByCategory(category, limit = 10) {
-  const [rows] = await pool.query(
-    `SELECT p.*, g.name AS genre_name, p.author_name, a.avatar AS author_avatar, a.bio AS author_bio
+export async function getPostsByCategory(category, limit = 10, genreName = null) {
+  let query = `SELECT p.*, g.name AS genre_name, p.author_name, a.avatar AS author_avatar, a.bio AS author_bio
      FROM blog_posts p
      LEFT JOIN genres g ON p.genre_id = g.id
      LEFT JOIN admin a ON p.author_id = a.id
      JOIN post_categories pc ON p.id = pc.post_id
-     WHERE pc.category = ?
-     ORDER BY p.created_at DESC
-     LIMIT ?`,
-    [category, limit]
-  );
+     WHERE pc.category = ?`;
+  const params = [category];
+  if (genreName) {
+    query += ' AND g.name = ?';
+    params.push(genreName);
+  }
+  query += ' ORDER BY p.created_at DESC LIMIT ?';
+  params.push(limit);
+  const [rows] = await pool.query(query, params);
   return rows;
 }
 

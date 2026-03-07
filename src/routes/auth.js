@@ -1,6 +1,6 @@
 import express from 'express';
 import { findAdminByEmail, updateAdminProfile, getSetting, setSetting, getHomepageStats, setHomepageStats, getHomepageContent, setHomepageContent, getSocialLinks, setSocialLinks } from '../models/admin.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { authenticateToken } from '../middleware/auth.js';
 import multer from 'multer';
@@ -30,7 +30,7 @@ router.post('/login', async (req, res) => {
   if (!admin) {
     return res.status(401).json({ message: 'Invalid credentials' });
   }
-  const valid = await bcrypt.compare(password, admin.password_hash);
+  const valid = bcrypt.compareSync(password, admin.password_hash);
   if (!valid) {
     return res.status(401).json({ message: 'Invalid credentials' });
   }
@@ -73,10 +73,10 @@ router.put('/change-password', authenticateToken, async (req, res) => {
   }
   const admin = await findAdminByEmail(req.user.email);
   if (!admin) return res.status(404).json({ message: 'Admin not found' });
-  const valid = await bcrypt.compare(oldPassword, admin.password_hash);
+  const valid = bcrypt.compareSync(oldPassword, admin.password_hash);
   if (!valid) return res.status(401).json({ message: 'Old password is incorrect' });
   if (newPassword.length < 8) return res.status(400).json({ message: 'New password must be at least 8 characters' });
-  const newHash = await bcrypt.hash(newPassword, 10);
+  const newHash = bcrypt.hashSync(newPassword, 10);
   await pool.query('UPDATE admin SET password_hash = ? WHERE id = ?', [newHash, adminId]);
   res.json({ message: 'Password updated successfully' });
 });

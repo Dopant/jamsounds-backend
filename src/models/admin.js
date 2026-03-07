@@ -1,5 +1,5 @@
 import pool from '../db.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 export async function findAdminByEmail(email) {
   const [rows] = await pool.query('SELECT * FROM admin WHERE email = ?', [email]);
@@ -7,7 +7,7 @@ export async function findAdminByEmail(email) {
 }
 
 export async function createAdmin({ email, password, name }) {
-  const password_hash = await bcrypt.hash(password, 10);
+  const password_hash = bcrypt.hashSync(password, 10);
   const [result] = await pool.query(
     'INSERT INTO admin (email, password_hash, name) VALUES (?, ?, ?)',
     [email, password_hash, name]
@@ -91,7 +91,8 @@ const SOCIAL_LINKS_KEYS = [
   'social_facebook_url',
   'social_instagram_url',
   'social_youtube_url',
-  'social_tiktok_url'
+  'social_tiktok_url',
+  'social_spotify_url'
 ];
 
 export async function getSocialLinks() {

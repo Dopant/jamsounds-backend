@@ -65,11 +65,12 @@ router.get('/', async (req, res) => {
   const userAgent = req.headers['user-agent'] || '';
   await logVisit({ ip, userAgent });
   const { search, genre, featured, sortBy, limit, offset, category } = req.query;
+  const genreName = req.query.genre || null;
   let posts;
   if (category) {
-    posts = await getPostsByCategory(category, limit ? parseInt(limit, 10) : 10);
+    posts = await getPostsByCategory(category, limit ? parseInt(limit, 10) : 10, genreName);
   } else {
-    posts = await getAllPosts({ search, genre, featured, sortBy, limit, offset });
+    posts = await getAllPosts({ search, genre_id: req.query.genre_id || genre, featured, sortBy, limit, offset });
   }
   // Map author fields into an author object for each post
   const postsWithAuthor = await Promise.all(posts.map(async post => ({
@@ -127,7 +128,7 @@ router.post('/', authenticateToken, uploadMedia, async (req, res) => {
       });
     }
     // Validate required fields
-    const { title, excerpt, content, tags, featured, rating, read_time, priority, categories, created_at, genre_id, author_name } = req.body;
+    const { title, excerpt, content, tags, featured, rating, read_time, priority, categories, created_at, genre_id, author_name, artist_social_links } = req.body;
     
     if (!title || !content) {
       return res.status(400).json({ 
@@ -185,6 +186,10 @@ router.post('/', authenticateToken, uploadMedia, async (req, res) => {
       author_image = '/uploads/' + authorFile.filename;
     }
   
+    let artistSocial = artist_social_links;
+    if (typeof artistSocial === 'string') {
+      try { artistSocial = JSON.parse(artistSocial); } catch { artistSocial = null; }
+    }
     // Create the post with validation
     const postId = await createPost({
       title,
@@ -200,7 +205,8 @@ router.post('/', authenticateToken, uploadMedia, async (req, res) => {
       rating,
       read_time,
       created_at, // pass through, may be undefined
-      genre_id: genre_id ? parseInt(genre_id, 10) : null
+      genre_id: genre_id ? parseInt(genre_id, 10) : null,
+      artist_social_links: artistSocial
     });
 
     if (!postId) {
@@ -326,8 +332,12 @@ router.put('/:id', authenticateToken, upload.fields([
   }
   const rating = req.body.rating !== undefined ? req.body.rating : existing.rating;
   const read_time = req.body.read_time !== undefined ? req.body.read_time : existing.read_time;
-  const { categories, created_at, genre_id } = req.body;
+  const { categories, created_at, genre_id, artist_social_links } = req.body;
 
+  let artistSocial = artist_social_links;
+  if (typeof artistSocial === 'string') {
+    try { artistSocial = JSON.parse(artistSocial); } catch { artistSocial = undefined; }
+  }
   const updated = await updatePost(req.params.id, {
     title,
     excerpt,
@@ -341,7 +351,8 @@ router.put('/:id', authenticateToken, upload.fields([
     rating,
     read_time,
     created_at, // pass through, may be undefined
-    genre_id: genre_id ? parseInt(genre_id, 10) : existing.genre_id
+    genre_id: genre_id ? parseInt(genre_id, 10) : existing.genre_id,
+    ...(artistSocial !== undefined && { artist_social_links: artistSocial })
   });
   if (!updated) return res.status(404).json({ message: 'Post not found' });
 
