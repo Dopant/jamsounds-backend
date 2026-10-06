@@ -48,3 +48,19 @@ Do not block admin URLs in robots.txt: they are served with `noindex` metadata s
 ## Dependency hygiene
 
 Install from `package-lock.json` with `npm ci` on each host so native packages match the host platform.
+
+## Reusable author profiles
+
+Author profiles are editorial bylines, separate from admin login accounts. The article editor lets admins select, add, and edit profiles with a name, plain-text bio, and optional photo URL. Profile changes appear on all linked articles; a blank bio stays blank instead of inheriting the account owner's bio. Existing article photos remain available unless a different author is selected.
+
+Deployment order:
+
+1. Back up the database using your existing backup procedure.
+2. From the updated backend checkout, run `npm ci` and `npm test`.
+3. Run `npm run migrate:authors -- --legacy-bio-author "Mariam Jibril"` using the production database environment. Use the exact existing byline spelling. The optional flag explicitly assigns the old shared bio to that author only when there is one unambiguous source bio. Without the flag, legacy bios copy only when the admin profile name matches the byline.
+4. Restart the backend, then deploy the updated frontend build. The new backend requires the migration; running it before the restart keeps the old backend working during migration.
+5. Open an existing article in the editor, review the selected profile, and add bios for other authors through **Edit profile**.
+
+The migration creates `authors`, adds nullable `blog_posts.author_profile_id`, backfills trimmed existing bylines, and leaves the login account ID and original byline fields intact. It can be rerun and does not overwrite a populated author bio. If legacy bio assignment reports an ambiguity, the schema and bylines are already migrated: enter that bio through the editor. It does not guess that differently spelled names belong to the same person. No author deletion endpoint is provided.
+
+All `/api/authors` endpoints require the existing admin JWT. Profile creation rejects duplicate names and unsafe photo URLs. Post saves validate profile IDs; older clients that still submit free-text bylines get an empty reusable profile for that name.
