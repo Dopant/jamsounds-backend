@@ -10,8 +10,8 @@ export async function getAllPosts({ search, genre_id, featured, sortBy, limit, o
     WHERE 1=1`;
   const params = [];
   if (search) {
-    query += ' AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)';
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    query += ' AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ? OR g.name LIKE ? OR EXISTS (SELECT 1 FROM blog_post_media m WHERE m.post_id = p.id AND m.artist LIKE ?))';
+    params.push(...Array(5).fill(`%${search}%`));
   }
   if (genre_id) {
     query += ' AND p.genre_id = ?';
@@ -230,4 +230,16 @@ export async function getVisitStats() {
     .map(([device, count]) => ({ device, count }));
 
   return { byCountry, byDevice };
-} 
+}
+// Sample IDs first, then fetch only the compact cards; no article bodies or counters.
+export async function getRediscoverPosts(limit = 8) {
+  const [ids] = await pool.query('SELECT id FROM blog_posts ORDER BY created_at DESC LIMIT 500');
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+  const selected = ids.slice(0, Math.max(1, Math.min(12, limit))).map(row => row.id);
+  if (!selected.length) return [];
+  const [rows] = await pool.query('SELECT p.id, p.title, p.excerpt, p.hero_image_url, g.name AS genre_name FROM blog_posts p LEFT JOIN genres g ON p.genre_id = g.id WHERE p.id IN (?)', [selected]);
+  return selected.map(id => rows.find(row => row.id === id)).filter(Boolean);
+}
