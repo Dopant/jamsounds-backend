@@ -47,4 +47,4 @@ Do not block admin URLs in robots.txt: they are served with `noindex` metadata s
 
 ## Dependency hygiene
 
-Generated `node_modules` trees are no longer versioned. Install from `package-lock.json` on each host so native packages match the host platform.
+Install from `package-lock.json` with `npm ci` on each host so native packages match the host platform.
