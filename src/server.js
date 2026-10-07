@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 import seoRoutes from './routes/seo.js';
 import authRoutes from './routes/auth.js';
+import authorsRoutes from './routes/authors.js';
 import postsRoutes from './routes/posts.js';
 import analyticsRoutes from './routes/analytics.js';
 import newsletterRoutes from './routes/newsletter.js';
@@ -18,6 +19,7 @@ app.use(express.json());
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/authors', authorsRoutes);
 app.use('/api/posts', postsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/newsletter', newsletterRoutes);

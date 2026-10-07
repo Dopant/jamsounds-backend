@@ -1,4 +1,5 @@
 import express from 'express';
+import authors from '../models/author.js';
 import { normalizeArtistLinks, normalizeRetainedMediaIds } from '../utils/artistLinks.js';
 import { authenticateToken } from '../middleware/auth.js';
 import {
@@ -143,6 +144,9 @@ router.post('/', authenticateToken, uploadMedia, async (req, res) => {
       });
     }
 
+    let authorProfile;
+    try { authorProfile = await authors.resolve(req.body); }
+    catch (error) { if (error.code) { console.error('Author resolution failed:', error); return res.status(500).json({ message: 'Could not load author profile' }); } return res.status(400).json({ message: error.message }); }
     const author_id = req.user.id;
     let hero_image_url = null;
     let author_image = null;
@@ -200,7 +204,7 @@ router.post('/', authenticateToken, uploadMedia, async (req, res) => {
       excerpt,
       content,
       author_id,
-      author_name: author_name || 'Admin',
+      ...authorProfile,
       author_image,
       tags,
       featured: featured === 'true' || featured === true,
@@ -279,7 +283,7 @@ router.post('/', authenticateToken, uploadMedia, async (req, res) => {
       message: 'Post created successfully',
       post: {
         title,
-        author_name: author_name || 'Admin',
+        ...authorProfile,
         author_image,
         hero_image_url,
         featured: featured === 'true' || featured === true
@@ -315,12 +319,14 @@ router.put('/:id', authenticateToken, uploadMedia, async (req, res) => {
   const title = req.body.title !== undefined ? req.body.title : existing.title;
   const excerpt = req.body.excerpt !== undefined ? req.body.excerpt : existing.excerpt;
   const content = req.body.content !== undefined ? req.body.content : existing.content;
-  const author_name = req.body.author_name !== undefined ? req.body.author_name : existing.author_name;
+  let authorProfile;
+  try { authorProfile = await authors.resolve(req.body, existing); }
+  catch (error) { if (error.code) { console.error('Author resolution failed:', error); return res.status(500).json({ message: 'Could not load author profile' }); } return res.status(400).json({ message: error.message }); }
   const tags = req.body.tags !== undefined ? req.body.tags : existing.tags;
   const featured = req.body.featured !== undefined ? (req.body.featured === 'true' || req.body.featured === true) : existing.featured;
   const priority = req.body.priority !== undefined ? (req.body.priority ? parseInt(req.body.priority, 10) : 0) : existing.priority;
   let hero_image_url = existing.hero_image_url;
-  let author_image = existing.author_image;
+  let author_image = authorProfile.author_profile_id === existing.author_profile_id ? existing.author_image : null;
 
   if (req.files && req.files['heroImage'] && req.files['heroImage'][0]) {
     // Use original hero image for now (processing disabled)
@@ -345,7 +351,7 @@ router.put('/:id', authenticateToken, uploadMedia, async (req, res) => {
     title,
     excerpt,
     content,
-    author_name,
+    ...authorProfile,
     author_image,
     tags,
     featured,
