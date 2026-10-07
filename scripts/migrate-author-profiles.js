@@ -15,10 +15,10 @@ export async function migrate(db = pool, args = process.argv.slice(2)) {
   await db.query(`INSERT INTO authors (name, bio, avatar)
     SELECT DISTINCT COALESCE(NULLIF(TRIM(author_name), ''), 'Admin'), '', '' FROM blog_posts
     ON DUPLICATE KEY UPDATE name = authors.name`);
-  await db.query(`UPDATE blog_posts p JOIN authors a ON a.name = COALESCE(NULLIF(TRIM(p.author_name), ''), 'Admin')
+  await db.query(`UPDATE blog_posts p JOIN authors a ON a.name COLLATE utf8mb4_unicode_ci = CONVERT(COALESCE(NULLIF(TRIM(p.author_name), ''), 'Admin') USING utf8mb4) COLLATE utf8mb4_unicode_ci
     SET p.author_profile_id = a.id WHERE p.author_profile_id IS NULL`);
   // Do not give every byline the account owner's bio. Copy only a matching name.
-  await db.query(`UPDATE authors a JOIN admin u ON TRIM(u.name) = a.name
+  await db.query(`UPDATE authors a JOIN admin u ON CONVERT(TRIM(u.name) USING utf8mb4) COLLATE utf8mb4_unicode_ci = a.name COLLATE utf8mb4_unicode_ci
     SET a.bio = COALESCE(u.bio, ''), a.avatar = COALESCE(u.avatar, '')
     WHERE a.bio = '' AND COALESCE(u.bio, '') <> ''`);
   const position = args.indexOf('--legacy-bio-author');
@@ -28,7 +28,7 @@ export async function migrate(db = pool, args = process.argv.slice(2)) {
     const [profiles] = await db.query('SELECT id, bio FROM authors WHERE name = ?', [name]);
     if (!profiles.length) throw new Error('Legacy bio author not found among existing bylines');
     const [bios] = await db.query(`SELECT DISTINCT u.bio FROM blog_posts p JOIN admin u ON u.id = p.author_id
-      WHERE TRIM(p.author_name) = ? AND COALESCE(u.bio, '') <> ''`, [name]);
+      WHERE CONVERT(TRIM(p.author_name) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(? USING utf8mb4) COLLATE utf8mb4_unicode_ci AND COALESCE(u.bio, '') <> ''`, [name]);
     if (bios.length !== 1) throw new Error('No unambiguous legacy bio found. Enter this author bio through the editor.');
     if (!profiles[0].bio) await db.query('UPDATE authors SET bio = ? WHERE id = ? AND bio = ?', [bios[0].bio, profiles[0].id, '']);
   }

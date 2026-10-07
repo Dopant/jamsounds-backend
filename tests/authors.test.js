@@ -85,6 +85,20 @@ test('migration is repeatable and copies the legacy bio only to the explicitly s
   assert.equal(calls.filter(c => c.sql.startsWith('ALTER')).length, 1);
   const copy = calls.find(c => c.sql.startsWith('UPDATE authors SET bio'));
   assert.deepEqual(copy.params, ['Mariam bio', 1, '']);
-  assert.match(calls.find(c => c.sql.includes('JOIN admin u ON TRIM')).sql, /WHERE a.bio = ''/);
+  assert.match(calls.find(c => c.sql.includes('JOIN admin u ON CONVERT')).sql, /WHERE a.bio = ''/);
   assert.match(calls.find(c => c.sql.startsWith('UPDATE blog_posts')).sql, /WHERE p.author_profile_id IS NULL/);
+});
+
+ test('migration explicitly aligns collations for cross-table author-name comparisons', async () => {
+  const { migrate } = await import('../scripts/migrate-author-profiles.js');
+  const comparisons = [];
+  await migrate({ query: async sql => {
+    if (sql.includes('information_schema')) return [[{ COLUMN_NAME: 'author_profile_id' }]];
+    if (sql.startsWith('SELECT id, bio')) return [[{ id: 1, bio: 'Existing bio' }]];
+    if (sql.startsWith('SELECT DISTINCT u.bio')) { comparisons.push(sql); return [[{ bio: 'Legacy bio' }]]; }
+    if (sql.startsWith('UPDATE blog_posts') || sql.includes('JOIN admin u ON CONVERT')) comparisons.push(sql);
+    return [{}];
+  } }, ['--legacy-bio-author', 'Mariam Jibril']);
+  assert.equal(comparisons.length, 3);
+  for (const sql of comparisons) assert.match(sql, /COLLATE utf8mb4_unicode_ci = .*COLLATE utf8mb4_unicode_ci/);
 });
